@@ -1,4 +1,3 @@
-require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const { Pool } = require("pg");
@@ -8,17 +7,46 @@ const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
 
+// Try to load .env file if it exists (optional)
+try {
+  require("dotenv").config();
+} catch (e) {
+  console.log("ℹ️ dotenv not installed or .env missing, using default config");
+}
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || "kyampisi-library-secret-key";
 
-// PostgreSQL connection
-const pool = new Pool({
-  user: process.env.DB_USER || "postgres",
-  host: process.env.DB_HOST || "localhost",
-  database: process.env.DB_NAME || "kyampisi_library",
-  password: process.env.DB_PASSWORD || "password",
-  port: process.env.DB_PORT || 5432,
+// ========== POSTGRESQL CONNECTION ==========
+// Use DATABASE_URL if provided (cloud deployment), otherwise use local credentials
+const pool = (() => {
+  if (process.env.DATABASE_URL) {
+    console.log("✅ Using DATABASE_URL from environment");
+    return new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : false,
+    });
+  } else {
+    console.log("✅ Using local PostgreSQL configuration");
+    return new Pool({
+      user: process.env.DB_USER || "postgres",
+      host: process.env.DB_HOST || "localhost",
+      database: process.env.DB_NAME || "kyampisi_library",
+      password: process.env.DB_PASSWORD || "password", // <-- CHANGE THIS
+      port: process.env.DB_PORT || 5432,
+    });
+  }
+})();
+
+// Test database connection on startup
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error("❌ Database connection failed:", err.message);
+    process.exit(1);
+  }
+  release();
+  console.log("✅ Database connected successfully");
 });
 
 // Multer configuration for file uploads
@@ -46,7 +74,7 @@ async function initializeDatabase() {
   try {
     await client.query("BEGIN");
 
-    // Drop tables (for clean slate)
+    // Drop tables (clean slate – comment out if you want to preserve data)
     await client.query("DROP TABLE IF EXISTS saved_resources CASCADE");
     await client.query("DROP TABLE IF EXISTS resources CASCADE");
     await client.query("DROP TABLE IF EXISTS users CASCADE");
@@ -67,7 +95,7 @@ async function initializeDatabase() {
       )
     `);
 
-    // Resources (with file columns)
+    // Resources
     await client.query(`
       CREATE TABLE resources (
         id SERIAL PRIMARY KEY,
@@ -137,11 +165,11 @@ async function initializeDatabase() {
     `);
 
     await client.query("COMMIT");
-    console.log("PostgreSQL schema created");
+    console.log("✅ PostgreSQL schema created");
     await seedDatabase(client);
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("Schema creation error:", err);
+    console.error("❌ Schema creation error:", err);
     throw err;
   } finally {
     client.release();
@@ -152,13 +180,12 @@ async function seedDatabase(client) {
   try {
     await client.query("BEGIN");
 
-    // Seed resources
     const resources = [
       ["Albedo modification in dense cities: A meta-analysis", "Chen, L., Wong, T., & Martinez, R.", 2026, "Comprehensive review of cool roof and green canopy impacts on urban surface temperatures.", "journal", 0, "environmental", "14 min", "10.1016/j.uclim.2026.101234", "Urban Climate", 0],
       ["ASEAN solar tariff impacts 2024-2026: Policy analysis", "Widodo, A., Santos, M., & Lee, K.", 2025, "Examines feed-in tariff adjustments and their effect on solar PV adoption across Southeast Asia.", "journal", 1, "energy", "18 min", "10.1016/j.enpol.2025.113456", "Energy Policy", 0],
-      ["Research Design: Qualitative, Quantitative, and Mixed Methods", "Creswell, J.W., & Creswell, J.D.", 2023, "Sixth edition includes new chapters on digital ethnography and online data collection ethics.", "book", 0, "methodology", "Reference", "978-1071817956", "SAGE Publications", 0],
-      ["The Impact of Mobile Money on Rural Livelihoods in Uganda", "Nakato, M., & Okello, J.", 2025, "This thesis examines how mobile money services have transformed financial inclusion among smallholder farmers in Kyampisi District.", "thesis", 1, "economics", "45 min", null, "Kyampisi University", 1],
-      ["Groundwater Quality Assessment in Kyampisi Sub-County", "Ssali, P.", 2024, "Master's thesis evaluating borehole water quality and contamination risks in peri-urban settlements.", "thesis", 1, "environmental", "50 min", null, "Kyampisi University", 1]
+      ["Research Design: Qualitative, Quantitative, and Mixed Methods", "Creswell, J.W., & Creswell, J.D.", 2023, "Sixth edition includes new chapters on digital ethnography.", "book", 0, "methodology", "Reference", "978-1071817956", "SAGE Publications", 0],
+      ["The Impact of Mobile Money on Rural Livelihoods in Uganda", "Nakato, M., & Okello, J.", 2025, "This thesis examines how mobile money services have transformed financial inclusion.", "thesis", 1, "economics", "45 min", null, "Kyampisi University", 1],
+      ["Groundwater Quality Assessment in Kyampisi Sub-County", "Ssali, P.", 2024, "Master's thesis evaluating borehole water quality and contamination risks.", "thesis", 1, "environmental", "50 min", null, "Kyampisi University", 1]
     ];
 
     for (const r of resources) {
@@ -169,7 +196,6 @@ async function seedDatabase(client) {
       );
     }
 
-    // Demo users
     const hashed = bcrypt.hashSync("password123", 10);
     await client.query(
       "INSERT INTO users (email, password, name, role, institution, avatar) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (email) DO NOTHING",
@@ -180,7 +206,6 @@ async function seedDatabase(client) {
       ["librarian@kyampisi.go.ug", hashed, "James Okello", "librarian", "Kyampisi Public Library", "https://i.pravatar.cc/150?img=12"]
     );
 
-    // Seed announcements
     await client.query(
       "INSERT INTO announcements (title, content, category) VALUES ($1, $2, $3)",
       ["New JSTOR Access", "Kyampisi Public Library now provides remote access to JSTOR Arts & Sciences I-X.", "database"]
@@ -190,7 +215,6 @@ async function seedDatabase(client) {
       ["Call for Papers: Uganda Research Symposium 2026", "Submit abstracts by May 15.", "conference"]
     );
 
-    // Seed workshops
     await client.query(
       "INSERT INTO workshops (title, description, date, time, registration_link) VALUES ($1, $2, $3, $4, $5)",
       ["Zotero Citation Management", "Learn to organize references and insert citations in Word.", "2026-04-25", "14:00 EAT", "https://www.zotero.org/support/quick_start_guide"]
@@ -201,10 +225,10 @@ async function seedDatabase(client) {
     );
 
     await client.query("COMMIT");
-    console.log("Database seeded successfully");
+    console.log("✅ Database seeded successfully");
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("Seed error:", err);
+    console.error("❌ Seed error:", err);
     throw err;
   }
 }
@@ -238,11 +262,7 @@ app.post("/api/auth/register", async (req, res) => {
       [email, hashed, name, institution, role || "researcher"]
     );
     const userId = result.rows[0].id;
-    const token = jwt.sign(
-      { id: userId, email, name, role: role || "researcher" },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = jwt.sign({ id: userId, email, name, role: role || "researcher" }, JWT_SECRET, { expiresIn: "7d" });
     res.status(201).json({ token, user: { id: userId, email, name, role: role || "researcher", institution } });
   } catch (err) {
     if (err.code === "23505") return res.status(400).json({ error: "Email already registered" });
@@ -258,11 +278,7 @@ app.post("/api/auth/login", async (req, res) => {
     if (!user || !bcrypt.compareSync(password, user.password)) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
-    const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name, role: user.role },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = jwt.sign({ id: user.id, email: user.email, name: user.name, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
     res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role, avatar: user.avatar, institution: user.institution } });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -297,10 +313,8 @@ app.get("/api/resources", async (req, res) => {
   try {
     const countResult = await pool.query(`SELECT COUNT(*) FROM (${query}) AS temp`, params);
     const total = parseInt(countResult.rows[0].count);
-
     query += ` ORDER BY year DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(parseInt(limit), offset);
-
     const result = await pool.query(query, params);
     res.json({ resources: result.rows, total, page: parseInt(page), totalPages: Math.ceil(total / limit) });
   } catch (err) {
@@ -321,7 +335,6 @@ app.get("/api/resources/:id", async (req, res) => {
 app.post("/api/resources", authenticateToken, upload.single("file"), async (req, res) => {
   const { title, authors, year, snippet, type, open_access, publisher, doi, is_local_thesis } = req.body;
   if (!title || !authors || !year) return res.status(400).json({ error: "Title, authors, and year are required" });
-
   try {
     let filePath = null, fileName = null, fileSize = null;
     if (req.file) {
@@ -344,9 +357,7 @@ app.post("/api/resources", authenticateToken, upload.single("file"), async (req,
 app.get("/api/resources/:id/download", async (req, res) => {
   try {
     const result = await pool.query("SELECT file_path, file_name FROM resources WHERE id = $1", [req.params.id]);
-    if (result.rows.length === 0 || !result.rows[0].file_path) {
-      return res.status(404).json({ error: "File not found" });
-    }
+    if (result.rows.length === 0 || !result.rows[0].file_path) return res.status(404).json({ error: "File not found" });
     const filePath = path.join(__dirname, result.rows[0].file_path);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File missing on server" });
     res.download(filePath, result.rows[0].file_name);
@@ -368,10 +379,7 @@ app.get("/api/user/profile", authenticateToken, async (req, res) => {
 app.put("/api/user/profile", authenticateToken, async (req, res) => {
   const { name, institution, avatar } = req.body;
   try {
-    await pool.query(
-      "UPDATE users SET name = COALESCE($1, name), institution = COALESCE($2, institution), avatar = COALESCE($3, avatar) WHERE id = $4",
-      [name, institution, avatar, req.user.id]
-    );
+    await pool.query("UPDATE users SET name = COALESCE($1, name), institution = COALESCE($2, institution), avatar = COALESCE($3, avatar) WHERE id = $4", [name, institution, avatar, req.user.id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -380,10 +388,7 @@ app.put("/api/user/profile", authenticateToken, async (req, res) => {
 
 app.get("/api/user/saved", authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT r.* FROM resources r JOIN saved_resources s ON r.id = s.resource_id WHERE s.user_id = $1`,
-      [req.user.id]
-    );
+    const result = await pool.query(`SELECT r.* FROM resources r JOIN saved_resources s ON r.id = s.resource_id WHERE s.user_id = $1`, [req.user.id]);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -392,10 +397,7 @@ app.get("/api/user/saved", authenticateToken, async (req, res) => {
 
 app.post("/api/user/save/:resourceId", authenticateToken, async (req, res) => {
   try {
-    await pool.query(
-      "INSERT INTO saved_resources (user_id, resource_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-      [req.user.id, req.params.resourceId]
-    );
+    await pool.query("INSERT INTO saved_resources (user_id, resource_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [req.user.id, req.params.resourceId]);
     res.json({ success: true, saved: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -428,11 +430,7 @@ app.post("/api/assistance", async (req, res) => {
   const userEmail = email || req.user?.email || null;
   if (!question) return res.status(400).json({ error: "Question is required" });
   try {
-    await pool.query(
-      `INSERT INTO assistance_requests (user_id, user_name, email, question)
-       VALUES ($1, $2, $3, $4)`,
-      [userId, userName, userEmail, question]
-    );
+    await pool.query(`INSERT INTO assistance_requests (user_id, user_name, email, question) VALUES ($1, $2, $3, $4)`, [userId, userName, userEmail, question]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -451,9 +449,7 @@ app.get("/api/announcements", async (req, res) => {
 
 app.get("/api/workshops", async (req, res) => {
   try {
-    const result = await pool.query(
-      "SELECT * FROM workshops WHERE date::DATE >= CURRENT_DATE ORDER BY date::DATE"
-    );
+    const result = await pool.query("SELECT * FROM workshops WHERE date::DATE >= CURRENT_DATE ORDER BY date::DATE");
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -541,10 +537,7 @@ app.delete("/api/admin/resources/:id", authenticateToken, requireLibrarian, asyn
 app.post("/api/admin/announcements", authenticateToken, requireLibrarian, async (req, res) => {
   const { title, content, category } = req.body;
   try {
-    await pool.query(
-      "INSERT INTO announcements (title, content, category) VALUES ($1, $2, $3)",
-      [title, content, category || "general"]
-    );
+    await pool.query("INSERT INTO announcements (title, content, category) VALUES ($1, $2, $3)", [title, content, category || "general"]);
     res.status(201).json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -554,10 +547,7 @@ app.post("/api/admin/announcements", authenticateToken, requireLibrarian, async 
 app.put("/api/admin/announcements/:id", authenticateToken, requireLibrarian, async (req, res) => {
   const { title, content, category } = req.body;
   try {
-    await pool.query(
-      "UPDATE announcements SET title = COALESCE($1, title), content = COALESCE($2, content), category = COALESCE($3, category) WHERE id = $4",
-      [title, content, category, req.params.id]
-    );
+    await pool.query("UPDATE announcements SET title = COALESCE($1, title), content = COALESCE($2, content), category = COALESCE($3, category) WHERE id = $4", [title, content, category, req.params.id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -576,10 +566,7 @@ app.delete("/api/admin/announcements/:id", authenticateToken, requireLibrarian, 
 app.post("/api/admin/workshops", authenticateToken, requireLibrarian, async (req, res) => {
   const { title, description, date, time, registration_link } = req.body;
   try {
-    await pool.query(
-      "INSERT INTO workshops (title, description, date, time, registration_link) VALUES ($1, $2, $3, $4, $5)",
-      [title, description, date, time, registration_link]
-    );
+    await pool.query("INSERT INTO workshops (title, description, date, time, registration_link) VALUES ($1, $2, $3, $4, $5)", [title, description, date, time, registration_link]);
     res.status(201).json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -589,16 +576,7 @@ app.post("/api/admin/workshops", authenticateToken, requireLibrarian, async (req
 app.put("/api/admin/workshops/:id", authenticateToken, requireLibrarian, async (req, res) => {
   const { title, description, date, time, registration_link } = req.body;
   try {
-    await pool.query(
-      `UPDATE workshops SET 
-        title = COALESCE($1, title),
-        description = COALESCE($2, description),
-        date = COALESCE($3, date),
-        time = COALESCE($4, time),
-        registration_link = COALESCE($5, registration_link)
-       WHERE id = $6`,
-      [title, description, date, time, registration_link, req.params.id]
-    );
+    await pool.query(`UPDATE workshops SET title = COALESCE($1, title), description = COALESCE($2, description), date = COALESCE($3, date), time = COALESCE($4, time), registration_link = COALESCE($5, registration_link) WHERE id = $6`, [title, description, date, time, registration_link, req.params.id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -614,19 +592,17 @@ app.delete("/api/admin/workshops/:id", authenticateToken, requireLibrarian, asyn
   }
 });
 
-// Catch-all
+// Catch-all for SPA
 app.get("/*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Start server
+// Start server after DB initialization
 initializeDatabase()
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Kyampisi Public Library running on http://localhost:${PORT}`);
-    });
+    app.listen(PORT, () => console.log(`✅ Kyampisi Public Library running on port ${PORT}`));
   })
   .catch(err => {
-    console.error("Failed to initialize database:", err);
+    console.error("❌ Failed to initialize database:", err);
     process.exit(1);
   });

@@ -22,3 +22,8 @@ Thumbs.db
 # IDE files
 .vscode/
 .idea/
+node_modules/
+.env
+uploads/
+*.log
+.DS_Store
