@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Librarian Dashboard · Kyampisi Public Library</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Inter", sans-serif; background: #0A0E14; color: #E8EDF2; min-height: 100vh; padding: 20px; }
+    .app-container { max-width: 1440px; margin: 0 auto; }
+    h1, h2, h3 { font-family: "Playfair Display", serif; font-weight: 500; letter-spacing: -0.02em; }
+    h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); color: #F4F7FB; }
+    h2 { font-size: clamp(1.4rem, 3vw, 2rem); color: #E2E9F2; margin-bottom: 12px; }
+    .navbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid rgba(201,169,89,0.2); }
+    .logo-area { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { background: linear-gradient(145deg, #C9A959 0%, #A8853A 100%); width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; color: #0A0E14; font-size: 24px; }
+    .tagline { color: #A5B9CE; font-weight: 400; font-size: 0.85rem; margin-top: 4px; }
+    .user-section { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .btn-login, .btn-logout, .btn-add, .btn-profile { background: rgba(30,40,55,0.8); backdrop-filter: blur(8px); padding: 8px 16px; border-radius: 60px; border: 1px solid rgba(201,169,89,0.3); color: #E8EDF2; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: all 0.2s; font-size: 0.9rem; }
+    .btn-login:hover, .btn-logout:hover, .btn-add:hover, .btn-profile:hover { background: #C9A959; color: #0A0E14; border-color: #C9A959; }
+    .user-badge { background: rgba(30,40,55,0.8); backdrop-filter: blur(8px); padding: 6px 14px; border-radius: 60px; border: 1px solid rgba(201,169,89,0.3); display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+    .user-badge img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid #C9A959; }
+    .tabs-wrapper { overflow-x: auto; margin-bottom: 20px; }
+    .pillar-tabs { display: flex; gap: 8px; border-bottom: 1px solid #25303E; padding-bottom: 12px; min-width: max-content; }
+    .pillar-tab { padding: 10px 18px; background: transparent; border: none; color: #9AAEC2; font-size: 0.95rem; font-weight: 500; cursor: pointer; border-radius: 60px; display: flex; align-items: center; gap: 8px; transition: all 0.2s; white-space: nowrap; }
+    .pillar-tab.active { background: #1E2A3A; color: #F0F5FC; border: 1px solid #C9A95955; }
+    .layout-with-sidebar { display: flex; gap: 24px; flex-wrap: wrap; }
+    .main-content { flex: 3; min-width: 280px; }
+    .sidebar { flex: 1; min-width: 250px; background: #0F1822; border-radius: 20px; padding: 20px; border: 1px solid #283849; height: fit-content; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .panel-section { background:#0F1822; border-radius:20px; padding:20px; margin-bottom:20px; }
+    .panel-section h3 { margin-bottom: 14px; }
+    .admin-list-item { background:#152033; border:1px solid #22304a; border-radius:14px; padding:14px; margin-bottom:12px; }
+    .admin-list-item strong { display:block; margin-bottom:10px; }
+    .admin-controls { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .admin-controls button { min-width:120px; }
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+    .field-row input, .field-row select, .field-row textarea { width:100%; padding:12px; background:#131E2A; border:1px solid #283849; border-radius:12px; color:#E8EDF2; }
+    .metric-badge { background: #1C2A3A; padding: 18px; border-radius: 18px; text-align: center; margin-bottom: 16px; }
+    .metric-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:12px; margin-top: 10px; }
+    .small-note { color:#9AAEC2; font-size:0.9rem; margin-top: 8px; }
+    @media (max-width: 800px) { .field-row { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<div class="app-container">
+  <div class="navbar">
+    <div class="logo-area">
+      <div class="logo-icon"><i class="fas fa-user-shield"></i></div>
+      <div>
+        <h1>Librarian Control Center</h1>
+        <div class="tagline">Manage requests, resources, announcements, workshops and users.</div>
+      </div>
+    </div>
+    <div class="user-section" id="userSection"></div>
+  </div>
+
+  <div class="tabs-wrapper">
+    <div class="pillar-tabs">
+      <button class="pillar-tab active" data-panel="dashboard"><i class="fas fa-tachometer-alt"></i>Dashboard</button>
+      <button class="pillar-tab" data-panel="users"><i class="fas fa-users"></i>Users</button>
+      <button class="pillar-tab" data-panel="resources"><i class="fas fa-database"></i>Resources</button>
+      <button class="pillar-tab" data-panel="announcements"><i class="fas fa-bullhorn"></i>Announcements</button>
+      <button class="pillar-tab" data-panel="workshops"><i class="fas fa-chalkboard"></i>Workshops</button>
+      <button class="pillar-tab" data-panel="requests"><i class="fas fa-headset"></i>Requests</button>
+      <button class="pillar-tab" onclick="window.location.href='/'"><i class="fas fa-home"></i>Public Site</button>
+    </div>
+  </div>
+
+  <div class="layout-with-sidebar">
+    <div class="main-content">
+      <div id="dashboard" class="panel active">
+        <h2>Welcome, Librarian</h2>
+        <div id="dashboardSummary" class="metric-grid"></div>
+        <div class="panel-section">
+          <h3>Quick Actions</h3>
+          <div class="admin-controls">
+            <button class="btn-login" onclick="loadAdminUsers()">Refresh Users</button>
+            <button class="btn-login" onclick="loadAdminResources()">Refresh Resources</button>
+            <button class="btn-login" onclick="loadAdminAnnouncements()">Refresh Announcements</button>
+            <button class="btn-login" onclick="loadAdminWorkshops()">Refresh Workshops</button>
+            <button class="btn-login" onclick="loadAdminRequests()">Refresh Requests</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="users" class="panel">
+        <h2>Users</h2>
+        <div id="adminUsers"></div>
+      </div>
+
+      <div id="resources" class="panel">
+        <h2>Resources</h2>
+        <div class="panel-section" style="margin-bottom:20px;">
+          <h3>Add Resource</h3>
+          <div class="field-row">
+            <input id="adminResourceTitle" placeholder="Title" />
+            <input id="adminResourceAuthors" placeholder="Authors" />
+          </div>
+          <div class="field-row">
+            <input id="adminResourceYear" type="number" placeholder="Year" />
+            <input id="adminResourceType" placeholder="Type (journal, book, thesis, conference)" />
+          </div>
+          <textarea id="adminResourceSnippet" rows="3" placeholder="Snippet"></textarea>
+          <div class="field-row">
+            <input id="adminResourcePublisher" placeholder="Publisher" />
+            <input id="adminResourceDoi" placeholder="DOI" />
+          </div>
+          <div class="field-row">
+            <input id="adminResourceReadingTime" placeholder="Reading time" />
+            <label style="display:flex; align-items:center; gap:10px;"><input type="checkbox" id="adminResourceOpenAccess"> Open Access</label>
+          </div>
+          <button class="btn-login" onclick="createAdminResource()">Create Resource</button>
+        </div>
+        <div id="adminResources">Loading resources...</div>
+      </div>
+
+      <div id="announcements" class="panel">
+        <h2>Announcements</h2>
+        <div class="panel-section" style="margin-bottom:20px;">
+          <h3>Create Announcement</h3>
+          <input id="adminAnnouncementTitle" placeholder="Title" />
+          <textarea id="adminAnnouncementContent" rows="3" placeholder="Content"></textarea>
+          <input id="adminAnnouncementCategory" placeholder="Category" />
+          <button class="btn-login" onclick="createAdminAnnouncement()">Create Announcement</button>
+        </div>
+        <div id="adminAnnouncements">Loading announcements...</div>
+      </div>
+
+      <div id="workshops" class="panel">
+        <h2>Workshops</h2>
+        <div class="panel-section" style="margin-bottom:20px;">
+          <h3>Create Workshop</h3>
+          <input id="adminWorkshopTitle" placeholder="Title" />
+          <textarea id="adminWorkshopDescription" rows="3" placeholder="Description"></textarea>
+          <div class="field-row">
+            <input id="adminWorkshopDate" type="date" />
+            <input id="adminWorkshopTime" placeholder="Time" />
+          </div>
+          <input id="adminWorkshopLink" placeholder="Registration link" />
+          <button class="btn-login" onclick="createAdminWorkshop()">Create Workshop</button>
+        </div>
+        <div id="adminWorkshops">Loading workshops...</div>
+      </div>
+
+      <div id="requests" class="panel">
+        <h2>Assistance Requests</h2>
+        <div id="adminRequests">Loading requests...</div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <h3><i class="fas fa-info-circle"></i> Notes</h3>
+      <p class="small-note">As a librarian, you can manage user roles, update resources, add announcements and keep the library hub up to date.</p>
+      <h3 style="margin-top:25px;"><i class="fas fa-lock"></i> Access</h3>
+      <p class="small-note">This page is restricted to librarian accounts. Use the public site button to view the main platform.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const API_BASE = window.location.origin;
+    let authToken = localStorage.getItem('kyampisi_token');
+    let currentUser = null;
+    let adminUsers = [];
+    let adminResources = [];
+    let adminAnnouncements = [];
+    let adminWorkshops = [];
+    let adminRequests = [];
+
+    async function init() {
+      if (!authToken) return redirectHome();
+      try {
+        const profileRes = await fetch(`${API_BASE}/api/user/profile`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (!profileRes.ok) throw new Error('Unauthorized');
+        currentUser = await profileRes.json();
+        if (!currentUser.role || currentUser.role.toLowerCase() !== 'librarian') {
+          throw new Error('Forbidden');
+        }
+        updateHeader();
+        setupListeners();
+        await loadDashboard();
+      } catch (e) {
+        redirectHome();
+      }
+    }
+
+    function redirectHome() {
+      localStorage.removeItem('kyampisi_token');
+      window.location.href = '/';
+    }
+
+    function updateHeader() {
+      document.getElementById('userSection').innerHTML = `
+        <div class="user-badge"><img src="${currentUser.avatar || 'https://i.pravatar.cc/150?img=' + (currentUser.id % 70)}"> ${currentUser.name}</div>
+        <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      `;
+    }
+
+    window.logout = () => {
+      localStorage.removeItem('kyampisi_token');
+      window.location.href = '/';
+    };
+
+    function setupListeners() {
+      document.querySelectorAll('.pillar-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+          document.querySelectorAll('.pillar-tab').forEach(btn => btn.classList.remove('active'));
+          document.querySelectorAll('.panel').forEach(panel => panel.classList.remove('active'));
+          this.classList.add('active');
+          document.getElementById(this.dataset.panel).classList.add('active');
+        });
+      });
+    }
+
+    async function loadDashboard() {
+      await Promise.all([
+        loadAdminUsers(),
+        loadAdminResources(),
+        loadAdminAnnouncements(),
+        loadAdminWorkshops(),
+        loadAdminRequests(),
+      ]);
+      renderDashboardSummary();
+    }
+
+    function renderDashboardSummary() {
+      document.getElementById('dashboardSummary').innerHTML = `
+        <div class="metric-badge"><div style="font-size:1.8rem; font-weight:700;">${adminUsers.length}</div><div>Users</div></div>
+        <div class="metric-badge"><div style="font-size:1.8rem; font-weight:700;">${adminResources.length}</div><div>Resources</div></div>
+        <div class="metric-badge"><div style="font-size:1.8rem; font-weight:700;">${adminAnnouncements.length}</div><div>Announcements</div></div>
+        <div class="metric-badge"><div style="font-size:1.8rem; font-weight:700;">${adminWorkshops.length}</div><div>Workshops</div></div>
+        <div class="metric-badge"><div style="font-size:1.8rem; font-weight:700;">${adminRequests.filter(r => !r.is_resolved).length}</div><div>Open Requests</div></div>
+      `;
+    }
+
+    async function fetchJson(path, options = {}) {
+      const res = await fetch(`${API_BASE}${path}`, {
+        headers: { Authorization: `Bearer ${authToken}`, ...(options.headers || {}) },
+        ...options,
+      });
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => ({}));
+        throw new Error(errorBody.error || 'Request failed');
+      }
+      return res.json();
+    }
+
+    async function loadAdminUsers() {
+      const container = document.getElementById('adminUsers');
+      container.innerHTML = 'Loading users...';
+      try {
+        adminUsers = await fetchJson('/api/admin/users');
+        if (!adminUsers.length) {
+          container.innerHTML = '<p>No users found.</p>';
+          renderDashboardSummary();
+          return;
+        }
+        container.innerHTML = adminUsers.map(u => `
+          <div class="admin-list-item">
+            <strong>${u.name} · ${u.email}</strong>
+            <div>${u.role} · ${u.institution || 'No institution'}</div>
+            <div class="admin-controls">
+              <button class="btn-login" onclick="editAdminUser(${u.id})">Edit</button>
+              <button class="btn-login" onclick="deleteAdminUser(${u.id})">Delete</button>
+            </div>
+          </div>
+        `).join('');
+        renderDashboardSummary();
+      } catch (e) {
+        container.innerHTML = `<p>Unable to load users: ${e.message}</p>`;
+      }
+    }
+
+    async function editAdminUser(id) {
+      const user = adminUsers.find(u => u.id === id);
+      if (!user) return;
+      const name = prompt('Name', user.name) || user.name;
+      const email = prompt('Email', user.email) || user.email;
+      const role = prompt('Role', user.role) || user.role;
+      const institution = prompt('Institution', user.institution || '') || user.institution;
+      try {
+        await fetchJson(`/api/admin/users/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, role, institution }),
+        });
+        await loadAdminUsers();
+      } catch (e) {
+        alert(`Update failed: ${e.message}`);
+      }
+    }
+
+    async function deleteAdminUser(id) {
+      if (!confirm('Delete this user?')) return;
+      try {
+        await fetchJson(`/api/admin/users/${id}`, { method: 'DELETE' });
+        await loadAdminUsers();
+      } catch (e) {
+        alert(`Delete failed: ${e.message}`);
+      }
+    }
+
+    async function loadAdminResources() {
+      const container = document.getElementById('adminResources');
+      container.innerHTML = 'Loading resources...';
+      try {
+        adminResources = await fetchJson('/api/admin/resources');
+        if (!adminResources.length) {
+          container.innerHTML = '<p>No resources found.</p>';
+          renderDashboardSummary();
+          return;
+        }
+        container.innerHTML = adminResources.map(r => `
+          <div class="admin-list-item">
+            <strong>${r.title}</strong>
+            <div>${r.authors} · ${r.year} · ${r.type}</div>
+            <div>${r.open_access ? 'Open Access' : 'Restricted'} · ${r.is_local_thesis ? 'Local Thesis' : ''}</div>
+            <div class="admin-controls">
+              <button class="btn-login" onclick="editAdminResource(${r.id})">Edit</button>
+              <button class="btn-login" onclick="deleteAdminResource(${r.id})">Delete</button>
+            </div>
+          </div>
+        `).join('');
+        renderDashboardSummary();
+      } catch (e) {
+        container.innerHTML = `<p>Unable to load resources: ${e.message}</p>`;
+      }
+    }
+
+    async function createAdminResource() {
+      const title = document.getElementById('adminResourceTitle').value.trim();
+      const authors = document.getElementById('adminResourceAuthors').value.trim();
+      const year = document.getElementById('adminResourceYear').value;
+      const snippet = document.getElementById('adminResourceSnippet').value.trim();
+      const type = document.getElementById('adminResourceType').value.trim() || 'journal';
+      const publisher = document.getElementById('adminResourcePublisher').value.trim();
+      const doi = document.getElementById('adminResourceDoi').value.trim();
+      const reading_time = document.getElementById('adminResourceReadingTime').value.trim() || '10 min';
+      const open_access = document.getElementById('adminResourceOpenAccess').checked;
+      if (!title || !authors || !year) { return alert('Title, authors, and year are required'); }
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('authors', authors);
+      formData.append('year', year);
+      formData.append('snippet', snippet);
+      formData.append('type', type);
+      formData.append('open_access', open_access);
+      formData.append('cover_category', 'default');
+      formData.append('reading_time', reading_time);
+      formData.append('doi', doi || '');
+      formData.append('publisher', publisher || '');
+      formData.append('is_local_thesis', type === 'thesis');
+      try {
+        await fetch(`${API_BASE}/api/resources`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${authToken}` },
+          body: formData,
+        });
+        document.getElementById('adminResourceTitle').value = '';
+        document.getElementById('adminResourceAuthors').value = '';
+        document.getElementById('adminResourceYear').value = '';
+        document.getElementById('adminResourceSnippet').value = '';
+        document.getElementById('adminResourceType').value = '';
+        document.getElementById('adminResourcePublisher').value = '';
+        document.getElementById('adminResourceDoi').value = '';
+        document.getElementById('adminResourceReadingTime').value = '';
+        document.getElementById('adminResourceOpenAccess').checked = false;
+        await loadAdminResources();
+      } catch (e) {
+        alert(`Create failed: ${e.message}`);
+      }
+    }
+
+    async function editAdminResource(id) {
+      const resource = adminResources.find(r => r.id === id);
+      if (!resource) return;
+      const title = prompt('Title', resource.title) || resource.title;
+      const authors = prompt('Authors', resource.authors) || resource.authors;
+      const year = prompt('Year', resource.year) || resource.year;
+      const snippet = prompt('Snippet', resource.snippet) || resource.snippet;
+      const type = prompt('Type', resource.type) || resource.type;
+      const publisher = prompt('Publisher', resource.publisher || '') || resource.publisher;
+      const doi = prompt('DOI', resource.doi || '') || resource.doi;
+      const open_access = confirm('Make this resource open access?');
+      const is_local_thesis = confirm('Mark as local thesis?');
+      try {
+        await fetchJson(`/api/admin/resources/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, authors, year, snippet, type, publisher, doi, open_access, cover_category: resource.cover_category || 'default', reading_time: resource.reading_time || '10 min', is_local_thesis }),
+        });
+        await loadAdminResources();
+      } catch (e) {
+        alert(`Update failed: ${e.message}`);
+      }
+    }
+
+    async function deleteAdminResource(id) {
+      if (!confirm('Delete this resource?')) return;
+      try {
+        await fetchJson(`/api/admin/resources/${id}`, { method: 'DELETE' });
+        await loadAdminResources();
+      } catch (e) {
+        alert(`Delete failed: ${e.message}`);
+      }
+    }
+
+    async function loadAdminAnnouncements() {
+      const container = document.getElementById('adminAnnouncements');
+      container.innerHTML = 'Loading announcements...';
+      try {
+        adminAnnouncements = await fetchJson('/api/admin/announcements');
+        if (!adminAnnouncements.length) {
+          container.innerHTML = '<p>No announcements yet.</p>';
+          renderDashboardSummary();
+          return;
+        }
+        container.innerHTML = adminAnnouncements.map(a => `
+          <div class="admin-list-item">
+            <strong>${a.title}</strong>
+            <div>${a.category || 'general'}</div>
+            <p>${a.content}</p>
+            <div class="admin-controls">
+              <button class="btn-login" onclick="editAdminAnnouncement(${a.id})">Edit</button>
+              <button class="btn-login" onclick="deleteAdminAnnouncement(${a.id})">Delete</button>
+            </div>
+          </div>
+        `).join('');
+        renderDashboardSummary();
+      } catch (e) {
+        container.innerHTML = `<p>Unable to load announcements: ${e.message}</p>`;
+      }
+    }
+
+    async function createAdminAnnouncement() {
+      const title = document.getElementById('adminAnnouncementTitle').value.trim();
+      const content = document.getElementById('adminAnnouncementContent').value.trim();
+      const category = document.getElementById('adminAnnouncementCategory').value.trim() || 'general';
+      if (!title || !content) return alert('Title and content are required.');
+      try {
+        await fetchJson('/api/admin/announcements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, content, category }),
+        });
+        document.getElementById('adminAnnouncementTitle').value = '';
+        document.getElementById('adminAnnouncementContent').value = '';
+        document.getElementById('adminAnnouncementCategory').value = '';
+        await loadAdminAnnouncements();
+      } catch (e) {
+        alert(`Create failed: ${e.message}`);
+      }
+    }
+
+    async function editAdminAnnouncement(id) {
+      const announcement = adminAnnouncements.find(a => a.id === id);
+      if (!announcement) return;
+      const title = prompt('Title', announcement.title) || announcement.title;
+      const content = prompt('Content', announcement.content) || announcement.content;
+      const category = prompt('Category', announcement.category || 'general') || announcement.category;
+      try {
+        await fetchJson(`/api/admin/announcements/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, content, category }),
+        });
+        await loadAdminAnnouncements();
+      } catch (e) {
+        alert(`Update failed: ${e.message}`);
+      }
+    }
+
+    async function deleteAdminAnnouncement(id) {
+      if (!confirm('Delete this announcement?')) return;
+      try {
+        await fetchJson(`/api/admin/announcements/${id}`, { method: 'DELETE' });
+        await loadAdminAnnouncements();
+      } catch (e) {
+        alert(`Delete failed: ${e.message}`);
+      }
+    }
+
+    async function loadAdminWorkshops() {
+      const container = document.getElementById('adminWorkshops');
+      container.innerHTML = 'Loading workshops...';
+      try {
+        adminWorkshops = await fetchJson('/api/admin/workshops');
+        if (!adminWorkshops.length) {
+          container.innerHTML = '<p>No workshops yet.</p>';
+          renderDashboardSummary();
+          return;
+        }
+        container.innerHTML = adminWorkshops.map(w => `
+          <div class="admin-list-item">
+            <strong>${w.title}</strong>
+            <div>${w.date} · ${w.time}</div>
+            <p>${w.description}</p>
+            <div class="admin-controls">
+              <button class="btn-login" onclick="editAdminWorkshop(${w.id})">Edit</button>
+              <button class="btn-login" onclick="deleteAdminWorkshop(${w.id})">Delete</button>
+            </div>
+          </div>
+        `).join('');
+        renderDashboardSummary();
+      } catch (e) {
+        container.innerHTML = `<p>Unable to load workshops: ${e.message}</p>`;
+      }
+    }
+
+    async function createAdminWorkshop() {
+      const title = document.getElementById('adminWorkshopTitle').value.trim();
+      const description = document.getElementById('adminWorkshopDescription').value.trim();
+      const date = document.getElementById('adminWorkshopDate').value;
+      const time = document.getElementById('adminWorkshopTime').value.trim();
+      const registration_link = document.getElementById('adminWorkshopLink').value.trim() || '#';
+      if (!title || !description || !date || !time) return alert('All workshop fields are required.');
+      try {
+        await fetchJson('/api/admin/workshops', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, description, date, time, registration_link }),
+        });
+        document.getElementById('adminWorkshopTitle').value = '';
+        document.getElementById('adminWorkshopDescription').value = '';
+        document.getElementById('adminWorkshopDate').value = '';
+        document.getElementById('adminWorkshopTime').value = '';
+        document.getElementById('adminWorkshopLink').value = '';
+        await loadAdminWorkshops();
+      } catch (e) {
+        alert(`Create failed: ${e.message}`);
+      }
+    }
+
+    async function editAdminWorkshop(id) {
+      const workshop = adminWorkshops.find(w => w.id === id);
+      if (!workshop) return;
+      const title = prompt('Title', workshop.title) || workshop.title;
+      const description = prompt('Description', workshop.description) || workshop.description;
+      const date = prompt('Date', workshop.date) || workshop.date;
+      const time = prompt('Time', workshop.time) || workshop.time;
+      const registration_link = prompt('Registration link', workshop.registration_link || '#') || workshop.registration_link;
+      try {
+        await fetchJson(`/api/admin/workshops/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, description, date, time, registration_link }),
+        });
+        await loadAdminWorkshops();
+      } catch (e) {
+        alert(`Update failed: ${e.message}`);
+      }
+    }
+
+    async function deleteAdminWorkshop(id) {
+      if (!confirm('Delete this workshop?')) return;
+      try {
+        await fetchJson(`/api/admin/workshops/${id}`, { method: 'DELETE' });
+        await loadAdminWorkshops();
+      } catch (e) {
+        alert(`Delete failed: ${e.message}`);
+      }
+    }
+
+    async function loadAdminRequests() {
+      const container = document.getElementById('adminRequests');
+      container.innerHTML = 'Loading requests...';
+      try {
+        adminRequests = await fetchJson('/api/admin/assistance-requests');
+        if (!adminRequests.length) {
+          container.innerHTML = '<p>No requests found.</p>';
+          renderDashboardSummary();
+          return;
+        }
+        container.innerHTML = adminRequests.map(r => `
+          <div class="admin-list-item">
+            <strong>${r.user_name || 'Guest'} · ${new Date(r.created_at).toLocaleString()}</strong>
+            <p>${r.question}</p>
+            <p><strong>Reply email:</strong> ${r.email || 'not provided'}</p>
+            <p><strong>Status:</strong> ${r.is_resolved ? 'Resolved' : 'Open'}</p>
+            <p><strong>Response:</strong> ${r.response || '<em>No reply yet</em>'}</p>
+            <div class="admin-controls">
+              <button class="btn-login" onclick="toggleRequestResolved(${r.id}, ${r.is_resolved})">${r.is_resolved ? 'Reopen' : 'Mark Resolved'}</button>
+              <button class="btn-login" onclick="replyToRequest(${r.id})">Reply</button>
+            </div>
+          </div>
+        `).join('');
+        renderDashboardSummary();
+      } catch (e) {
+        container.innerHTML = `<p>Unable to load requests: ${e.message}</p>`;
+      }
+    }
+
+    async function toggleRequestResolved(id, currentState) {
+      try {
+        await fetchJson(`/api/admin/assistance-requests/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_resolved: !currentState }),
+        });
+        await loadAdminRequests();
+      } catch (e) {
+        alert(`Update failed: ${e.message}`);
+      }
+    }
+
+    async function replyToRequest(id) {
+      const request = adminRequests.find(r => r.id === id);
+      if (!request) return;
+      const response = prompt('Reply message', request.response || '');
+      if (response === null) return;
+      try {
+        await fetchJson(`/api/admin/assistance-requests/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ response, is_resolved: true }),
+        });
+        await loadAdminRequests();
+      } catch (e) {
+        alert(`Reply failed: ${e.message}`);
+      }
+    }
+
+    init();
+  })();
+</script>
+</body>
+</html>
